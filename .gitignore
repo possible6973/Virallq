@@ -1,0 +1,16 @@
+# Environment & Local Configuration
+.env
+.env.local
+*.pyc
+__pycache__/
+.DS_Store
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Node & Build artifacts
+node_modules/
+frontend/node_modules/
+.vercel
