@@ -1,23 +1,14 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "npm --prefix frontend install && npm --prefix frontend run build && cp -r frontend/dist ./dist",
+  "outputDirectory": "dist",
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "dist/assets/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "dist/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
