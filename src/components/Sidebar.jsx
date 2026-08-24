@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ currentView, setCurrentView }) {
   return (
-    <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col h-screen sticky top-0 z-30 font-sans">
+    <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col h-screen sticky top-0 z-30 font-sans">
       {/* Brand Logo Header (Memberstack Style) */}
       <div className="p-6 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-3">

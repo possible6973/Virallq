@@ -103,6 +103,7 @@ class ChatRequest(BaseModel):
 # ================= REST ENDPOINTS =================
 
 @app.get("/api/dashboard")
+@app.get("/dashboard")
 def get_dashboard_summary():
     scripts = get_all_scripts()
     predictions = get_all_predictions()
@@ -132,6 +133,7 @@ def get_dashboard_summary():
     }
 
 @app.post("/api/analyze")
+@app.post("/analyze")
 def analyze_script_endpoint(req: AnalyzeScriptRequest):
     if not req.script_text.strip():
         raise HTTPException(status_code=400, detail="Script text cannot be empty.")
@@ -183,6 +185,7 @@ def analyze_script_endpoint(req: AnalyzeScriptRequest):
     }
 
 @app.post("/api/enhance-prompt")
+@app.post("/enhance-prompt")
 def enhance_prompt_endpoint(req: EnhancePromptRequest):
     enhanced = enhance_user_prompt(
         informal_text=req.informal_prompt,
@@ -195,6 +198,7 @@ def enhance_prompt_endpoint(req: EnhancePromptRequest):
     return {"enhanced_prompt": enhanced}
 
 @app.post("/api/generate")
+@app.post("/generate")
 def generate_candidates_endpoint(req: GenerateScriptRequest):
     engine = BatchOptimizationEngine(
         batch_size=req.batch_size,
@@ -236,10 +240,12 @@ def generate_candidates_endpoint(req: GenerateScriptRequest):
     }
 
 @app.get("/api/viral-library")
+@app.get("/viral-library")
 def get_viral_library_endpoint(category: Optional[str] = None, search: Optional[str] = None):
     return search_viral_scripts(category=category, topic=search, limit=50)
 
 @app.post("/api/viral-library")
+@app.post("/viral-library")
 def add_viral_library_endpoint(item: Dict[str, Any]):
     vs = ViralScript(
         id=None,
@@ -260,10 +266,12 @@ def add_viral_library_endpoint(item: Dict[str, Any]):
     return {"id": v_id, "status": "success"}
 
 @app.get("/api/scripts")
+@app.get("/scripts")
 def get_user_scripts_endpoint():
     return get_all_scripts()
 
 @app.post("/api/scripts")
+@app.post("/scripts")
 def create_script_endpoint(req: ScriptCreateRequest):
     s_id = create_script(Script(
         id=None,
@@ -277,6 +285,7 @@ def create_script_endpoint(req: ScriptCreateRequest):
     return {"id": s_id, "status": "created"}
 
 @app.put("/api/scripts/{script_id}")
+@app.put("/scripts/{script_id}")
 def update_script_endpoint(script_id: int, req: ScriptUpdateRequest):
     success = update_script(
         script_id=script_id,
@@ -292,6 +301,7 @@ def update_script_endpoint(script_id: int, req: ScriptUpdateRequest):
     return {"status": "updated"}
 
 @app.delete("/api/scripts/{script_id}")
+@app.delete("/scripts/{script_id}")
 def delete_script_endpoint(script_id: int):
     success = delete_script(script_id)
     if not success:
@@ -299,6 +309,7 @@ def delete_script_endpoint(script_id: int):
     return {"status": "deleted"}
 
 @app.post("/api/ai-advisor")
+@app.post("/ai-advisor")
 def ai_advisor_endpoint(req: ChatRequest):
     recent_preds = get_all_predictions()[:3]
     ctx_str = ""
@@ -327,6 +338,7 @@ def ai_advisor_endpoint(req: ChatRequest):
     return {"reply": reply}
 
 @app.get("/api/analytics")
+@app.get("/analytics")
 def get_analytics_endpoint():
     ml_metrics = get_ml_metrics()
     ann_metrics = get_ann_metrics()
@@ -338,6 +350,7 @@ def get_analytics_endpoint():
     }
 
 @app.post("/api/reports/generate")
+@app.post("/reports/generate")
 def generate_report_endpoint(data: Dict[str, Any] = Body(...)):
     script_id = data.get("script_id")
     script = get_script_by_id(script_id)
@@ -359,6 +372,7 @@ def generate_report_endpoint(data: Dict[str, Any] = Body(...)):
     return {"report_markdown": report_md}
 
 @app.post("/api/analyze-reel")
+@app.post("/analyze-reel")
 def analyze_reel_endpoint(data: Dict[str, Any] = Body(...)):
     transcript = data.get("transcript", "").strip()
     if not transcript:
