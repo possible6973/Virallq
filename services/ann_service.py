@@ -9,12 +9,7 @@ from pathlib import Path
 # Add root directory to sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Set TF logging level
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import tensorflow as tf
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -22,7 +17,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from utils.feature_extraction import extract_script_features, features_to_vector, FEATURE_NAMES
 
 MODEL_DIR = Path(__file__).parent.parent / "models"
-ANN_MODEL_PATH = MODEL_DIR / "viral_ann.keras"
+ANN_MODEL_PATH = MODEL_DIR / "viral_ann_mlp.pkl"
 ANN_SCALER_PATH = MODEL_DIR / "ann_scaler.pkl"
 ANN_METRICS_PATH = MODEL_DIR / "ann_metrics.json"
 DATASET_PATH = Path(__file__).parent.parent / "data" / "datasets" / "reel_dataset.csv"
@@ -30,24 +25,6 @@ DATASET_PATH = Path(__file__).parent.parent / "data" / "datasets" / "reel_datase
 _ann_model = None
 _ann_scaler = None
 _ann_metrics = None
-
-def build_ann_architecture(input_dim: int) -> Sequential:
-    model = Sequential([
-        Dense(64, activation='relu', input_shape=(input_dim,)),
-        BatchNormalization(),
-        Dropout(0.2),
-        Dense(32, activation='relu'),
-        BatchNormalization(),
-        Dropout(0.1),
-        Dense(16, activation='relu'),
-        Dense(1, activation='sigmoid')
-    ])
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-        loss='binary_crossentropy',
-        metrics=['accuracy', tf.keras.metrics.Precision(name='precision'), tf.keras.metrics.Recall(name='recall')]
-    )
-    return model
 
 def train_ann_model(csv_path: str = None):
     global _ann_model, _ann_scaler, _ann_metrics
@@ -67,27 +44,20 @@ def train_ann_model(csv_path: str = None):
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    model = build_ann_architecture(input_dim=len(FEATURE_NAMES))
-    
-    early_stop = EarlyStopping(
-        monitor='val_loss',
-        patience=10,
-        restore_best_weights=True,
-        verbose=1
+    # Train Multi-Layer Perceptron (ANN)
+    mlp = MLPClassifier(
+        hidden_layer_sizes=(64, 32, 16),
+        activation='relu',
+        solver='adam',
+        max_iter=200,
+        random_state=42,
+        early_stopping=True
     )
-    
-    history = model.fit(
-        X_train_scaled, y_train,
-        validation_split=0.2,
-        epochs=100,
-        batch_size=16,
-        callbacks=[early_stop],
-        verbose=0
-    )
+    mlp.fit(X_train_scaled, y_train)
     
     # Evaluation
-    y_prob = model.predict(X_test_scaled, verbose=0).flatten()
-    y_pred = (y_prob >= 0.5).astype(int)
+    y_pred = mlp.predict(X_test_scaled)
+    y_prob = mlp.predict_proba(X_test_scaled)[:, 1]
     
     acc = float(accuracy_score(y_test, y_pred))
     prec = float(precision_score(y_test, y_pred, zero_division=0))
@@ -99,27 +69,25 @@ def train_ann_model(csv_path: str = None):
         'precision': round(prec * 100, 2),
         'recall': round(rec * 100, 2),
         'f1_score': round(f1 * 100, 2),
-        'epochs_trained': len(history.history['loss']),
-        'final_val_loss': round(float(history.history['val_loss'][-1]), 4),
+        'epochs_trained': int(mlp.n_iter_),
+        'final_val_loss': round(float(mlp.loss_), 4),
         'history': {
-            'loss': [round(float(v), 4) for v in history.history['loss']],
-            'val_loss': [round(float(v), 4) for v in history.history['val_loss']],
-            'accuracy': [round(float(v) * 100, 2) for v in history.history['accuracy']],
-            'val_accuracy': [round(float(v) * 100, 2) for v in history.history['val_accuracy']]
+            'loss': [round(float(v), 4) for v in mlp.loss_curve_],
+            'accuracy': [round(float(v) * 100, 2) for v in mlp.validation_scores_] if mlp.validation_scores_ else [round(acc * 100, 2)]
         }
     }
     
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    model.save(str(ANN_MODEL_PATH))
+    joblib.dump(mlp, ANN_MODEL_PATH)
     joblib.dump(scaler, ANN_SCALER_PATH)
     with open(ANN_METRICS_PATH, 'w') as f:
         json.dump(metrics, f, indent=2)
         
-    _ann_model = model
+    _ann_model = mlp
     _ann_scaler = scaler
     _ann_metrics = metrics
     
-    print(f"ANN Model trained with EarlyStopping after {metrics['epochs_trained']} epochs. Accuracy: {metrics['accuracy']}%")
+    print(f"ANN Model (MLPClassifier) trained successfully! Accuracy: {metrics['accuracy']}%")
     return metrics
 
 def load_ann_model():
@@ -131,7 +99,7 @@ def load_ann_model():
         train_ann_model()
         return _ann_model, _ann_scaler, _ann_metrics
         
-    _ann_model = load_model(str(ANN_MODEL_PATH))
+    _ann_model = joblib.load(ANN_MODEL_PATH)
     _ann_scaler = joblib.load(ANN_SCALER_PATH)
     if ANN_METRICS_PATH.exists():
         with open(ANN_METRICS_PATH, 'r') as f:
@@ -147,7 +115,7 @@ def predict_ann_score(script_text: str, target_duration: int = 30) -> float:
     vector = features_to_vector(features)
     vector_scaled = scaler.transform(vector)
     
-    prob = model.predict(vector_scaled, verbose=0)[0][0]
+    prob = model.predict_proba(vector_scaled)[0][1]
     raw_ann_score = round(float(prob * 100.0), 2)
     return raw_ann_score
 
