@@ -63,19 +63,20 @@ def train_ml_model(csv_path: str = None):
         'feature_importances': dict(zip(FEATURE_NAMES, [round(float(fi), 4) for fi in clf.feature_importances_]))
     }
     
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {
-        'model': clf,
-        'scaler': scaler,
-        'metrics': metrics
-    }
-    joblib.dump(payload, MODEL_PATH)
+    try:
+        MODEL_DIR.mkdir(parents=True, exist_ok=True)
+        payload = {
+            'model': clf,
+            'scaler': scaler,
+            'metrics': metrics
+        }
+        joblib.dump(payload, MODEL_PATH)
+    except Exception as e:
+        print(f"File system read-only, trained in memory: {e}")
     
     _ml_model = clf
     _ml_scaler = scaler
     _ml_metrics = metrics
-    
-    print(f"ML Model trained successfully! Accuracy: {metrics['accuracy']}%")
     return metrics
 
 def load_ml_model():
@@ -83,14 +84,17 @@ def load_ml_model():
     if _ml_model is not None and _ml_scaler is not None:
         return _ml_model, _ml_scaler, _ml_metrics
         
-    if not MODEL_PATH.exists():
-        train_ml_model()
-        return _ml_model, _ml_scaler, _ml_metrics
-        
-    payload = joblib.load(MODEL_PATH)
-    _ml_model = payload['model']
-    _ml_scaler = payload['scaler']
-    _ml_metrics = payload['metrics']
+    if MODEL_PATH.exists():
+        try:
+            payload = joblib.load(MODEL_PATH)
+            _ml_model = payload['model']
+            _ml_scaler = payload['scaler']
+            _ml_metrics = payload['metrics']
+            return _ml_model, _ml_scaler, _ml_metrics
+        except Exception as e:
+            print(f"Error unpickling ML model: {e}")
+            
+    train_ml_model()
     return _ml_model, _ml_scaler, _ml_metrics
 
 def predict_ml_score(script_text: str, target_duration: int = 30) -> tuple[float, dict]:
@@ -99,7 +103,6 @@ def predict_ml_score(script_text: str, target_duration: int = 30) -> tuple[float
     vector = features_to_vector(features)
     vector_scaled = scaler.transform(vector)
     
-    # Predict continuous score probability [0.0 - 100.0]
     prob = model.predict_proba(vector_scaled)[0][1]
     raw_ml_score = round(float(prob * 100.0), 2)
     return raw_ml_score, features

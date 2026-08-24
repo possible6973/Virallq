@@ -57,8 +57,6 @@ def train_ann_model(csv_path: str = None):
     
     # Evaluation
     y_pred = mlp.predict(X_test_scaled)
-    y_prob = mlp.predict_proba(X_test_scaled)[:, 1]
-    
     acc = float(accuracy_score(y_test, y_pred))
     prec = float(precision_score(y_test, y_pred, zero_division=0))
     rec = float(recall_score(y_test, y_pred, zero_division=0))
@@ -77,17 +75,18 @@ def train_ann_model(csv_path: str = None):
         }
     }
     
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump(mlp, ANN_MODEL_PATH)
-    joblib.dump(scaler, ANN_SCALER_PATH)
-    with open(ANN_METRICS_PATH, 'w') as f:
-        json.dump(metrics, f, indent=2)
+    try:
+        MODEL_DIR.mkdir(parents=True, exist_ok=True)
+        joblib.dump(mlp, ANN_MODEL_PATH)
+        joblib.dump(scaler, ANN_SCALER_PATH)
+        with open(ANN_METRICS_PATH, 'w') as f:
+            json.dump(metrics, f, indent=2)
+    except Exception as e:
+        print(f"File system read-only, trained ANN in memory: {e}")
         
     _ann_model = mlp
     _ann_scaler = scaler
     _ann_metrics = metrics
-    
-    print(f"ANN Model (MLPClassifier) trained successfully! Accuracy: {metrics['accuracy']}%")
     return metrics
 
 def load_ann_model():
@@ -95,18 +94,20 @@ def load_ann_model():
     if _ann_model is not None and _ann_scaler is not None:
         return _ann_model, _ann_scaler, _ann_metrics
         
-    if not ANN_MODEL_PATH.exists() or not ANN_SCALER_PATH.exists():
-        train_ann_model()
-        return _ann_model, _ann_scaler, _ann_metrics
-        
-    _ann_model = joblib.load(ANN_MODEL_PATH)
-    _ann_scaler = joblib.load(ANN_SCALER_PATH)
-    if ANN_METRICS_PATH.exists():
-        with open(ANN_METRICS_PATH, 'r') as f:
-            _ann_metrics = json.load(f)
-    else:
-        _ann_metrics = {'accuracy': 95.0, 'epochs_trained': 25}
-        
+    if ANN_MODEL_PATH.exists() and ANN_SCALER_PATH.exists():
+        try:
+            _ann_model = joblib.load(ANN_MODEL_PATH)
+            _ann_scaler = joblib.load(ANN_SCALER_PATH)
+            if ANN_METRICS_PATH.exists():
+                with open(ANN_METRICS_PATH, 'r') as f:
+                    _ann_metrics = json.load(f)
+            else:
+                _ann_metrics = {'accuracy': 95.0, 'epochs_trained': 25}
+            return _ann_model, _ann_scaler, _ann_metrics
+        except Exception as e:
+            print(f"Error loading ANN model: {e}")
+            
+    train_ann_model()
     return _ann_model, _ann_scaler, _ann_metrics
 
 def predict_ann_score(script_text: str, target_duration: int = 30) -> float:
