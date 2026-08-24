@@ -401,13 +401,18 @@ def analyze_reel_endpoint(data: Dict[str, Any] = Body(...)):
 
 # Static file serving for React production build
 dist_dir = Path(__file__).parent / "frontend" / "dist"
-if dist_dir.exists():
+if dist_dir.exists() and (dist_dir / "assets").exists():
     app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
 
 @app.get("/{full_path:path}")
 def serve_react_app(full_path: str):
     if full_path.startswith("api/"):
-        raise HTTPException(status_code=44, detail="Not Found")
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+        
+    file_path = dist_dir / full_path
+    if full_path and file_path.exists() and file_path.is_file():
+        return FileResponse(file_path)
+        
     index_file = dist_dir / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
