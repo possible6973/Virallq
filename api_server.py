@@ -32,9 +32,12 @@ from services.prompt_service import enhance_user_prompt
 from services.optimization_service import BatchOptimizationEngine
 from services.cnn_service import analyze_thumbnail_frame
 
-# Initialize DB
-init_db()
-seed_database()
+# Initialize DB safely on cold start
+try:
+    init_db()
+    seed_database()
+except Exception as e:
+    print(f"DB Init Warning: {e}")
 
 app = FastAPI(title="ViralIQ API & SaaS Application", version="2.0")
 
