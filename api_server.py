@@ -403,7 +403,10 @@ def analyze_reel_endpoint(data: Dict[str, Any] = Body(...)):
     }
 
 # Static file serving for React production build
-dist_dir = Path(__file__).parent / "frontend" / "dist"
+dist_dir = Path(__file__).parent / "dist"
+if not dist_dir.exists() or not (dist_dir / "assets").exists():
+    dist_dir = Path(__file__).parent / "frontend" / "dist"
+
 if dist_dir.exists() and (dist_dir / "assets").exists():
     app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
 
